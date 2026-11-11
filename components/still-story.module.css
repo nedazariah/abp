@@ -1,0 +1,92 @@
+.still {
+  position: relative;
+  height: 100dvh;
+  margin: 0;
+  overflow: hidden;
+  background: #d5d6d2;
+}
+
+.still img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.still figcaption {
+  position: absolute;
+  top: calc(var(--header) + 2.4rem);
+  left: max(1.4rem, 5vw);
+  color: #1a2420;
+}
+
+.still[data-tone="dark"] figcaption {
+  color: #f4f1ea;
+}
+
+.still[data-tone="dark"]::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: min(48rem, 100%);
+  height: 46%;
+  background: linear-gradient(180deg, rgba(8, 12, 16, 0.62), rgba(8, 12, 16, 0));
+}
+
+.kicker,
+.line {
+  position: relative;
+  z-index: 1;
+}
+
+.kicker {
+  display: flex;
+  gap: 0.8rem;
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.kicker span {
+  color: #8d6a32;
+}
+
+.still[data-tone="dark"] .kicker span {
+  color: #e4c48a;
+}
+
+.line {
+  max-width: 16rem;
+  margin: 0.85rem 0 0;
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: clamp(1.9rem, 3.1vw, 3.2rem);
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+}
+
+@media (min-width: 800px) {
+  .line {
+    max-width: 22rem;
+  }
+}
+
+@media (max-width: 700px) {
+  .still figcaption {
+    top: auto;
+    right: 1.15rem;
+    bottom: 1.4rem;
+    left: 1.15rem;
+    padding: 0.85rem 0.95rem 0.95rem;
+    background: rgba(243, 240, 234, 0.9);
+  }
+
+  .still[data-tone="dark"] figcaption {
+    background: rgba(10, 14, 16, 0.62);
+  }
+
+  .line {
+    font-size: 1.45rem;
+  }
+}

@@ -1,0 +1,66 @@
+:root {
+  --paper: #f3f0ea;
+  --cream: #f7f4ee;
+  --ink: #1a2420;
+  --muted: rgba(26, 36, 32, 0.66);
+  --line: rgba(26, 36, 32, 0.14);
+  --green: #17382c;
+  --gold: #8d6a32;
+  --header: 4.5rem;
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  background: var(--paper);
+  scroll-padding-top: var(--header);
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 400;
+  line-height: 1.45;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2 {
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+::selection {
+  background: var(--green);
+  color: var(--cream);
+}

@@ -1,0 +1,148 @@
+.header {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  height: var(--header);
+  padding: 0 1.25rem;
+  color: var(--ink);
+  transition:
+    color 0.4s ease,
+    background-color 0.4s ease,
+    border-color 0.4s ease;
+}
+
+.header[data-surface="dark"] {
+  color: var(--cream);
+}
+
+.header[data-surface="paper"] {
+  background: rgba(243, 240, 234, 0.9);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(16px);
+}
+
+.skip {
+  position: absolute;
+  top: -4rem;
+  left: 1rem;
+  z-index: 30;
+  padding: 0.7rem 0.9rem;
+  background: var(--green);
+  color: var(--cream);
+  text-decoration: none;
+}
+
+.skip:focus {
+  top: 0.8rem;
+}
+
+.wordmark {
+  justify-self: start;
+  color: inherit;
+  font-size: 0.74rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.nav {
+  display: none;
+  gap: 1.6rem;
+}
+
+.nav a {
+  color: inherit;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-decoration: none;
+  text-transform: uppercase;
+  opacity: 0.68;
+}
+
+.nav a:hover,
+.nav a:focus-visible {
+  opacity: 1;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.85rem;
+}
+
+.price {
+  display: none;
+  margin: 0;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.bag,
+.cart {
+  border: 0;
+  font: inherit;
+}
+
+.bag {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  box-shadow: inset 0 0 0 1px currentColor;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.cart {
+  padding: 0.72rem 1rem;
+  border-radius: 999px;
+  background: var(--green);
+  color: var(--cream);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.header[data-surface="dark"] .cart {
+  background: var(--cream);
+  color: var(--green);
+}
+
+.cart:hover {
+  background: #204838;
+}
+
+.header[data-surface="dark"] .cart:hover {
+  background: #fff;
+}
+
+.bag:focus-visible,
+.cart:focus-visible,
+.nav a:focus-visible,
+.wordmark:focus-visible {
+  outline: 2px solid #b08948;
+  outline-offset: 3px;
+}
+
+@media (min-width: 860px) {
+  .header {
+    grid-template-columns: 1fr auto 1fr;
+    padding: 0 1.75rem;
+  }
+
+  .nav,
+  .price {
+    display: flex;
+  }
+}

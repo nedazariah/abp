@@ -1,0 +1,257 @@
+.page {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.wrap {
+  width: min(1120px, calc(100% - 2.5rem));
+  margin: 0 auto;
+}
+
+.eyebrow {
+  margin: 0 0 1.1rem;
+  color: var(--gold);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.statement {
+  display: grid;
+  gap: 2rem;
+  padding: 7.5rem 0 5rem;
+}
+
+.statement h1,
+.formula h2,
+.feeding h2 {
+  margin: 0;
+  font-family: var(--font-serif), Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.035em;
+  line-height: 0.96;
+}
+
+.statement h1 {
+  max-width: 9em;
+  font-size: clamp(3.1rem, 6.6vw, 6.2rem);
+}
+
+.copy {
+  max-width: 34rem;
+}
+
+.copy p,
+.feeding p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.08rem;
+  line-height: 1.6;
+}
+
+.copy p + p {
+  margin-top: 1rem;
+}
+
+.still {
+  position: relative;
+  height: min(88vh, 52rem);
+  margin: 0;
+  background: #d5d6d2;
+}
+
+.still img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.still figcaption {
+  position: absolute;
+  right: max(1.4rem, 5vw);
+  bottom: 8vh;
+  margin: 0;
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: clamp(2rem, 4vw, 3.6rem);
+  letter-spacing: -0.03em;
+  line-height: 0.95;
+}
+
+.facts {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.facts li {
+  padding: 2rem 0 2.4rem;
+}
+
+.facts li + li {
+  border-top: 1px solid var(--line);
+}
+
+.facts span {
+  color: var(--gold);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.14em;
+}
+
+.facts h2 {
+  margin: 0.8rem 0 0.55rem;
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: clamp(2rem, 3vw, 2.7rem);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+}
+
+.facts p {
+  max-width: 18rem;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.formula,
+.feeding {
+  display: grid;
+  gap: 2.5rem;
+  padding: 5.5rem 0;
+}
+
+.formula h2,
+.feeding h2 {
+  max-width: 8em;
+  font-size: clamp(2.6rem, 5vw, 4.4rem);
+}
+
+.formula dl {
+  margin: 0;
+}
+
+.formula dl div {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1.15rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.formula dl div:last-child {
+  border-bottom: 1px solid var(--line);
+}
+
+.formula dt {
+  color: var(--gold);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.formula dd {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.feeding p {
+  max-width: 26rem;
+  margin-top: 1.2rem;
+}
+
+.feeding table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.feeding th {
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--gold);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.feeding td {
+  padding: 1.15rem 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 1.15rem;
+}
+
+.feeding td:last-child,
+.feeding th:last-child {
+  text-align: right;
+}
+
+.footer {
+  display: grid;
+  gap: 0.8rem;
+  padding: 2rem 0 2.6rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.footer p {
+  margin: 0;
+}
+
+.footer p:first-child {
+  color: var(--ink);
+  font-size: 0.74rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+@media (min-width: 800px) {
+  .facts {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .facts li {
+    padding: 2.6rem 1.6rem 3rem 0;
+  }
+
+  .facts li + li {
+    padding-left: 1.6rem;
+    border-top: 0;
+    border-left: 1px solid var(--line);
+  }
+}
+
+@media (min-width: 900px) {
+  .statement {
+    grid-template-columns: 1.15fr 0.85fr;
+    align-items: end;
+    padding: 9.5rem 0 7rem;
+  }
+
+  .formula,
+  .feeding {
+    grid-template-columns: 0.9fr 1.1fr;
+    gap: 4rem;
+    align-items: start;
+    padding: 7.5rem 0;
+  }
+
+  .footer {
+    grid-template-columns: auto 1fr;
+    align-items: start;
+    gap: 3rem;
+    padding: 2.4rem 0 3rem;
+  }
+
+  .footer p:last-child {
+    max-width: 36rem;
+    justify-self: end;
+    text-align: right;
+  }
+}

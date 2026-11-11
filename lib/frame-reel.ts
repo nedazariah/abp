@@ -1,0 +1,261 @@
+/**
+ * Draws a list of JPEG sequences onto one canvas.
+ *
+ * Scroll progress, from 0 to 1, maps onto a single frame index across every
+ * sequence in order. A window of frames around the playhead is kept loaded
+ * so the film can be scrubbed without decoding the whole sequence at once.
+ */
+
+export type ReelSequence = {
+  id: string
+  count: number
+  tone: "light" | "dark"
+  /** 1-based frame number, matching the file names. */
+  url: (frameNumber: number) => string
+}
+
+export type Playhead = {
+  index: number
+  sequenceId: string
+  tone: "light" | "dark"
+  progress: number
+}
+
+const BEHIND = 16
+const AHEAD = 40
+const CONCURRENCY = 6
+/** Frames blended on either side of a cut between sequences. */
+const FADE = 8
+
+type Slot = {
+  image: HTMLImageElement
+  status: "loading" | "ready" | "failed"
+}
+
+export class FrameReel {
+  private ctx: CanvasRenderingContext2D
+  private total: number
+  private slots = new Map<number, Slot>()
+  private queue: number[] = []
+  private active = 0
+  private desired = 0
+  private painted = -1
+  private destroyed = false
+
+  constructor(
+    private canvas: HTMLCanvasElement,
+    private sequences: ReelSequence[],
+  ) {
+    const context = canvas.getContext("2d", { alpha: false })
+    if (!context) throw new Error("Canvas 2D is not available")
+    context.imageSmoothingEnabled = true
+    context.imageSmoothingQuality = "high"
+    this.ctx = context
+    this.total = sequences.reduce((sum, sequence) => sum + sequence.count, 0)
+    if (this.total < 1) throw new Error("The film has no frames")
+  }
+
+  get length() {
+    return this.total
+  }
+
+  resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5)
+    const rect = this.canvas.getBoundingClientRect()
+    const width = Math.max(1, Math.round(rect.width * dpr))
+    const height = Math.max(1, Math.round(rect.height * dpr))
+    if (this.canvas.width === width && this.canvas.height === height) return
+    this.canvas.width = width
+    this.canvas.height = height
+    this.painted = -1
+    this.ctx.imageSmoothingEnabled = true
+    this.ctx.imageSmoothingQuality = "high"
+    this.paint(this.desired)
+  }
+
+  /** Moves the playhead. `progress` is clamped to 0–1. */
+  seek(progress: number): Playhead {
+    const clamped = clamp(progress, 0, 1)
+    const index = Math.round(clamped * (this.total - 1))
+    this.desired = index
+    this.paint(index)
+    this.retain(index)
+    const sequence = this.sequenceAt(index)
+    return { index, sequenceId: sequence.id, tone: sequence.tone, progress: clamped }
+  }
+
+  /**
+   * Starts loading the opening frames. The scroll loop does not wait on this.
+   * Polled with a timer because some embedded browsers never fire animation frames.
+   */
+  warmup(count: number) {
+    const target = Math.min(count, this.total)
+    for (let index = 0; index < target; index += 1) this.request(index)
+    return new Promise<void>((resolve) => {
+      const started = performance.now()
+      const timer = window.setInterval(() => {
+        if (this.destroyed) {
+          window.clearInterval(timer)
+          resolve()
+          return
+        }
+        const settled = this.rangeSettled(0, target)
+        const timedOut = performance.now() - started > 4000
+        if (!settled && !timedOut) return
+        window.clearInterval(timer)
+        this.painted = -1
+        this.paint(this.desired)
+        resolve()
+      }, 32)
+    })
+  }
+
+  destroy() {
+    this.destroyed = true
+    this.queue = []
+    for (const slot of this.slots.values()) {
+      slot.image.onload = null
+      slot.image.onerror = null
+      slot.image.src = ""
+    }
+    this.slots.clear()
+  }
+
+  private rangeSettled(start: number, end: number) {
+    for (let index = start; index < end; index += 1) {
+      const status = this.slots.get(index)?.status
+      if (status !== "ready" && status !== "failed") return false
+    }
+    return true
+  }
+
+  private sequenceAt(index: number) {
+    let cursor = index
+    for (const sequence of this.sequences) {
+      if (cursor < sequence.count) return sequence
+      cursor -= sequence.count
+    }
+    return this.sequences[this.sequences.length - 1]
+  }
+
+  private urlAt(index: number) {
+    let cursor = index
+    for (const sequence of this.sequences) {
+      if (cursor < sequence.count) return sequence.url(cursor + 1)
+      cursor -= sequence.count
+    }
+    const last = this.sequences[this.sequences.length - 1]
+    return last.url(last.count)
+  }
+
+  private retain(index: number) {
+    const from = Math.max(0, index - BEHIND)
+    const to = Math.min(this.total - 1, index + AHEAD)
+    for (const [frame, slot] of this.slots) {
+      if (frame >= from - 8 && frame <= to + 8) continue
+      if (slot.status === "loading") this.active = Math.max(0, this.active - 1)
+      slot.image.onload = null
+      slot.image.onerror = null
+      slot.image.src = ""
+      this.slots.delete(frame)
+    }
+    this.queue = this.queue.filter((frame) => frame >= from && frame <= to)
+    for (let frame = index; frame <= to; frame += 1) this.request(frame)
+    for (let frame = index - 1; frame >= from; frame -= 1) this.request(frame)
+  }
+
+  private request(index: number) {
+    if (this.slots.has(index) || this.queue.includes(index)) return
+    this.queue.push(index)
+    this.pump()
+  }
+
+  private pump() {
+    while (this.active < CONCURRENCY && this.queue.length > 0) {
+      const index = this.queue.shift()
+      if (index === undefined || this.slots.has(index)) continue
+      const image = new Image()
+      image.decoding = "async"
+      const slot: Slot = { image, status: "loading" }
+      this.slots.set(index, slot)
+      this.active += 1
+      image.onload = () => {
+        this.active -= 1
+        if (this.destroyed) return
+        if (this.slots.get(index) === slot) {
+          slot.status = "ready"
+          if (Math.abs(index - this.desired) <= FADE) this.paint(this.desired)
+        }
+        this.pump()
+      }
+      image.onerror = () => {
+        this.active -= 1
+        if (this.slots.get(index) === slot) slot.status = "failed"
+        this.pump()
+      }
+      image.src = this.urlAt(index)
+    }
+  }
+
+  private readyImage(index: number) {
+    const slot = this.slots.get(index)
+    if (!slot || slot.status !== "ready" || slot.image.naturalWidth === 0) return null
+    return slot.image
+  }
+
+  private paint(index: number) {
+    if (this.canvas.width === 0 || this.canvas.height === 0) return
+    if (index === this.painted) return
+    const join = this.joinAt(index)
+    if (join) {
+      const from = this.readyImage(join.boundary - 1)
+      const to = this.readyImage(join.boundary)
+      if (!from && !to) return
+      this.cover(from, 1)
+      if (to) this.cover(to, join.blend)
+      if (from && to) this.painted = index
+      return
+    }
+    const image = this.readyImage(index)
+    if (!image) return
+    this.cover(image, 1)
+    this.painted = index
+  }
+
+  /** A blend factor when `index` sits on the cut between two sequences. */
+  private joinAt(index: number) {
+    let boundary = 0
+    for (let i = 0; i < this.sequences.length - 1; i += 1) {
+      boundary += this.sequences[i].count
+      const start = boundary - FADE
+      const end = boundary + FADE
+      if (index >= start && index < end) {
+        return { boundary, blend: (index - start) / (FADE * 2) }
+      }
+    }
+    return null
+  }
+
+  private cover(image: HTMLImageElement | null, alpha: number) {
+    if (!image) return
+    const width = this.canvas.width
+    const height = this.canvas.height
+    const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight)
+    const drawWidth = image.naturalWidth * scale
+    const drawHeight = image.naturalHeight * scale
+    const x = (width - drawWidth) / 2
+    const y = (height - drawHeight) / 2
+    if (alpha >= 1) {
+      this.ctx.globalAlpha = 1
+      this.ctx.drawImage(image, x, y, drawWidth, drawHeight)
+      return
+    }
+    this.ctx.globalAlpha = alpha
+    this.ctx.drawImage(image, x, y, drawWidth, drawHeight)
+    this.ctx.globalAlpha = 1
+  }
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
+}
