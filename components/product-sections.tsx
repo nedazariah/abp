@@ -21,7 +21,7 @@ export function ProductSections() {
       </section>
 
       <figure className={styles.still}>
-        <img src={frameUrl("intro", 168)} alt="Collagen powder pouring from the open bottle." />
+        <img src={frameUrl("intro-upscaled", 168)} alt="Collagen powder pouring from the open bottle." />
         <figcaption>Open. Pour. Stir.</figcaption>
       </figure>
 

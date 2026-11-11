@@ -3,13 +3,13 @@ import styles from "./still-story.module.css"
 
 const stills = [
   {
-    src: frameUrl("intro", 168),
+    src: frameUrl("intro-upscaled", 168),
     alt: "A green bottle pouring a stream of white collagen powder.",
     beat: beats[2],
     tone: "light" as const,
   },
   {
-    src: frameUrl("xray", 224),
+    src: frameUrl("xray-upscaled", 224),
     alt: "A small fluffy dog standing, its skeleton visible like an x-ray.",
     beat: beats[5],
     tone: "dark" as const,

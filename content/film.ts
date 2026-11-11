@@ -14,8 +14,8 @@ export type SequenceSource = {
 }
 
 export const sequences: SequenceSource[] = [
-  { id: "intro", folder: "intro", count: 196, tone: "light" },
-  { id: "xray", folder: "xray", count: 224, tone: "dark" },
+  { id: "intro", folder: "intro-upscaled", count: 196, tone: "light" },
+  { id: "xray", folder: "xray-upscaled", count: 224, tone: "dark" },
 ]
 
 /** How far the page scrolls for each frame. Higher is a slower, longer film. */
