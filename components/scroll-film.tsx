@@ -10,6 +10,7 @@ const reelSequences: ReelSequence[] = sequences.map((sequence) => ({
   id: sequence.id,
   count: sequence.count,
   tone: sequence.tone,
+  join: sequence.join,
   url: (frameNumber: number) => frameUrl(sequence.folder, frameNumber),
 }))
 

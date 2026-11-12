@@ -10,6 +10,8 @@ export type ReelSequence = {
   id: string
   count: number
   tone: "light" | "dark"
+  /** How this sequence hands off to the next. The last sequence has none. */
+  join?: "blend" | "dip"
   /** 1-based frame number, matching the file names. */
   url: (frameNumber: number) => string
 }
@@ -26,6 +28,9 @@ const AHEAD = 40
 const CONCURRENCY = 6
 /** Frames blended on either side of a cut between sequences. */
 const FADE = 8
+/** Frames of white on either side of a cut between mismatched shots. */
+const DIP = 14
+const DIP_COLOR = "#f3f4f5"
 
 type Slot = {
   image: HTMLImageElement
@@ -184,7 +189,7 @@ export class FrameReel {
         if (this.destroyed) return
         if (this.slots.get(index) === slot) {
           slot.status = "ready"
-          if (Math.abs(index - this.desired) <= FADE) this.paint(this.desired)
+          if (Math.abs(index - this.desired) <= DIP) this.paint(this.desired)
         }
         this.pump()
       }
@@ -207,6 +212,10 @@ export class FrameReel {
     if (this.canvas.width === 0 || this.canvas.height === 0) return
     if (index === this.painted) return
     const join = this.joinAt(index)
+    if (join?.mode === "dip") {
+      this.paintDip(index, join)
+      return
+    }
     if (join) {
       const from = this.readyImage(join.boundary - 1)
       const to = this.readyImage(join.boundary)
@@ -226,14 +235,39 @@ export class FrameReel {
   private joinAt(index: number) {
     let boundary = 0
     for (let i = 0; i < this.sequences.length - 1; i += 1) {
-      boundary += this.sequences[i].count
-      const start = boundary - FADE
-      const end = boundary + FADE
+      const sequence = this.sequences[i]
+      boundary += sequence.count
+      const mode = sequence.join ?? "blend"
+      const span = mode === "dip" ? DIP : FADE
+      const start = boundary - span
+      const end = boundary + span
       if (index >= start && index < end) {
-        return { boundary, blend: (index - start) / (FADE * 2) }
+        return { boundary, mode, span, blend: (index - start) / (span * 2) }
       }
     }
     return null
+  }
+
+  /**
+   * Holds the last frame, fades it to white, then brings the next shot up.
+   * The two pictures never share the screen, so a different dog can take over.
+   */
+  private paintDip(
+    index: number,
+    join: { boundary: number; span: number },
+  ) {
+    const incoming = index >= join.boundary
+    const image = this.readyImage(incoming ? index : join.boundary - 1)
+    if (!image) return
+    this.cover(image, 1)
+    const veil = incoming
+      ? (join.boundary + join.span - index) / join.span
+      : (index - (join.boundary - join.span)) / join.span
+    this.ctx.fillStyle = DIP_COLOR
+    this.ctx.globalAlpha = clamp(veil, 0, 1)
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+    this.ctx.globalAlpha = 1
+    this.painted = index
   }
 
   private cover(image: HTMLImageElement | null, alpha: number) {

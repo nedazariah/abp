@@ -14,9 +14,15 @@ const stills = [
     beat: beats[5],
     tone: "dark" as const,
   },
+  {
+    src: frameUrl("running-upscaled", 200),
+    alt: "A pomeranian sitting beside a green bottle of collagen powder.",
+    beat: beats[7],
+    tone: "light" as const,
+  },
 ]
 
-/** The same story, as two stills, when scroll-scrubbing is turned off. */
+/** The same story, as stills, when scroll-scrubbing is turned off. */
 export function StillStory() {
   return (
     <div id="story">
