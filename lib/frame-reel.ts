@@ -45,6 +45,10 @@ export class FrameReel {
   private active = 0
   private desired = 0
   private painted = -1
+  /** False when `painted` is showing a nearby frame while the real one loads. */
+  private paintedExact = false
+  /** Index of the JPEG actually on the canvas. */
+  private shown = -1
   private destroyed = false
 
   constructor(
@@ -73,6 +77,8 @@ export class FrameReel {
     this.canvas.width = width
     this.canvas.height = height
     this.painted = -1
+    this.paintedExact = false
+    this.shown = -1
     this.ctx.imageSmoothingEnabled = true
     this.ctx.imageSmoothingQuality = "high"
     this.paint(this.desired)
@@ -90,12 +96,14 @@ export class FrameReel {
   }
 
   /**
-   * Starts loading the opening frames. The scroll loop does not wait on this.
+   * Loads the opening frames before the film is shown. Resolves when they
+   * have settled, or after a short cap so a slow connection still gets in.
    * Polled with a timer because some embedded browsers never fire animation frames.
    */
-  warmup(count: number) {
+  warmup(count: number, onProgress?: (loaded: number, total: number) => void) {
     const target = Math.min(count, this.total)
     for (let index = 0; index < target; index += 1) this.request(index)
+    onProgress?.(0, target)
     return new Promise<void>((resolve) => {
       const started = performance.now()
       const timer = window.setInterval(() => {
@@ -104,11 +112,14 @@ export class FrameReel {
           resolve()
           return
         }
-        const settled = this.rangeSettled(0, target)
+        const loaded = this.rangeSettledCount(0, target)
+        onProgress?.(loaded, target)
         const timedOut = performance.now() - started > 4000
-        if (!settled && !timedOut) return
+        if (loaded < target && !timedOut) return
         window.clearInterval(timer)
         this.painted = -1
+        this.paintedExact = false
+        this.shown = -1
         this.paint(this.desired)
         resolve()
       }, 32)
@@ -126,12 +137,13 @@ export class FrameReel {
     this.slots.clear()
   }
 
-  private rangeSettled(start: number, end: number) {
+  private rangeSettledCount(start: number, end: number) {
+    let count = 0
     for (let index = start; index < end; index += 1) {
       const status = this.slots.get(index)?.status
-      if (status !== "ready" && status !== "failed") return false
+      if (status === "ready" || status === "failed") count += 1
     }
-    return true
+    return count
   }
 
   private sequenceAt(index: number) {
@@ -181,6 +193,7 @@ export class FrameReel {
       if (index === undefined || this.slots.has(index)) continue
       const image = new Image()
       image.decoding = "async"
+      if (index < 32) image.fetchPriority = "high"
       const slot: Slot = { image, status: "loading" }
       this.slots.set(index, slot)
       this.active += 1
@@ -210,25 +223,63 @@ export class FrameReel {
 
   private paint(index: number) {
     if (this.canvas.width === 0 || this.canvas.height === 0) return
-    if (index === this.painted) return
+    if (index === this.painted && this.paintedExact) return
     const join = this.joinAt(index)
     if (join?.mode === "dip") {
-      this.paintDip(index, join)
-      return
-    }
-    if (join) {
+      const dipped = this.paintDip(index, join)
+      if (dipped) {
+        this.painted = index
+        this.paintedExact = true
+        this.shown = index
+        return
+      }
+    } else if (join) {
       const from = this.readyImage(join.boundary - 1)
       const to = this.readyImage(join.boundary)
-      if (!from && !to) return
-      this.cover(from, 1)
-      if (to) this.cover(to, join.blend)
-      if (from && to) this.painted = index
-      return
+      if (from || to) {
+        this.cover(from, 1)
+        if (to) this.cover(to, join.blend)
+        this.painted = index
+        this.paintedExact = Boolean(from && to)
+        this.shown = index
+        return
+      }
+    } else {
+      const image = this.readyImage(index)
+      if (image) {
+        this.cover(image, 1)
+        this.painted = index
+        this.paintedExact = true
+        this.shown = index
+        return
+      }
     }
-    const image = this.readyImage(index)
-    if (!image) return
-    this.cover(image, 1)
+
+    const nearby = this.nearestReady(index)
+    if (!nearby) return
+    if (this.painted === index && this.shown === nearby.index) return
+    this.cover(nearby.image, 1)
     this.painted = index
+    this.paintedExact = false
+    this.shown = nearby.index
+  }
+
+  /** The closest decoded frame, preferring one already passed. */
+  private nearestReady(index: number) {
+    const limit = BEHIND + AHEAD
+    for (let delta = 1; delta <= limit; delta += 1) {
+      const before = index - delta
+      if (before >= 0) {
+        const image = this.readyImage(before)
+        if (image) return { index: before, image }
+      }
+      const after = index + delta
+      if (after < this.total) {
+        const image = this.readyImage(after)
+        if (image) return { index: after, image }
+      }
+    }
+    return null
   }
 
   /** A blend factor when `index` sits on the cut between two sequences. */
@@ -258,7 +309,7 @@ export class FrameReel {
   ) {
     const incoming = index >= join.boundary
     const image = this.readyImage(incoming ? index : join.boundary - 1)
-    if (!image) return
+    if (!image) return false
     this.cover(image, 1)
     const veil = incoming
       ? (join.boundary + join.span - index) / join.span
@@ -267,20 +318,29 @@ export class FrameReel {
     this.ctx.globalAlpha = clamp(veil, 0, 1)
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
     this.ctx.globalAlpha = 1
-    this.painted = index
+    return true
   }
 
   private cover(image: HTMLImageElement | null, alpha: number) {
     if (!image) return
     const width = this.canvas.width
     const height = this.canvas.height
-    const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight)
+    // A tall screen crops a 16:9 frame down to a center slice. Fit the whole
+    // picture instead, and let the stage show in the bands above and below.
+    const fit = height > width
+    const scale = fit
+      ? Math.min(width / image.naturalWidth, height / image.naturalHeight)
+      : Math.max(width / image.naturalWidth, height / image.naturalHeight)
     const drawWidth = image.naturalWidth * scale
     const drawHeight = image.naturalHeight * scale
     const x = (width - drawWidth) / 2
     const y = (height - drawHeight) / 2
     if (alpha >= 1) {
       this.ctx.globalAlpha = 1
+      if (fit) {
+        this.ctx.fillStyle = this.sequenceAt(this.desired).tone === "dark" ? "#101416" : "#d5d6d2"
+        this.ctx.fillRect(0, 0, width, height)
+      }
       this.ctx.drawImage(image, x, y, drawWidth, drawHeight)
       return
     }

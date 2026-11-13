@@ -15,6 +15,8 @@ const reelSequences: ReelSequence[] = sequences.map((sequence) => ({
 }))
 
 const scrollHeight = `calc(100dvh + ${(frameCount - 1) * pixelsPerFrame}px)`
+/** Frames decoded before the film is revealed. Enough to start a scroll. */
+const OPENING_FRAMES = 32
 
 /**
  * Pins the film to the viewport and scrubs the JPEG sequences with the scrollbar.
@@ -28,6 +30,8 @@ export function ScrollFilm() {
   const [beat, setBeat] = useState<Beat>(beats[0])
   const [tone, setTone] = useState<"light" | "dark">("light")
   const [reduced, setReduced] = useState(false)
+  const [ready, setReady] = useState(false)
+  const [warm, setWarm] = useState({ loaded: 0, total: OPENING_FRAMES })
   const { setSurface } = useChrome()
 
   useEffect(() => {
@@ -47,6 +51,7 @@ export function ScrollFilm() {
     const canvas = canvasRef.current
     if (!section || !canvas) return
 
+    setReady(false)
     const session = {
       reel: null as FrameReel | null,
       stop: null as (() => void) | null,
@@ -54,6 +59,7 @@ export function ScrollFilm() {
     let beatId: string = beats[0].id
     let currentTone: "light" | "dark" = "light"
     let docked = false
+    let cancel = false
 
     const redraw = () => session.reel?.resize()
     const observer = new ResizeObserver(() => redraw())
@@ -63,7 +69,11 @@ export function ScrollFilm() {
       const reel = new FrameReel(canvas, reelSequences)
       session.reel = reel
       reel.resize()
-      void reel.warmup(18)
+      void reel.warmup(OPENING_FRAMES, (loaded, total) => {
+        if (!cancel) setWarm({ loaded, total })
+      }).then(() => {
+        if (!cancel) setReady(true)
+      })
       reel.seek(0)
 
       const playhead = { progress: 0 }
@@ -120,6 +130,7 @@ export function ScrollFilm() {
     setup()
 
     return () => {
+      cancel = true
       observer.disconnect()
       window.removeEventListener("resize", redraw)
       session.stop?.()
@@ -127,14 +138,32 @@ export function ScrollFilm() {
     }
   }, [reduced, setSurface])
 
+  useEffect(() => {
+    if (ready) return
+    const previous = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = previous
+    }
+  }, [ready])
+
   const beatIndex = Math.max(0, beats.findIndex((item) => item.id === beat.id))
+  const warmScale = warm.total > 0 ? warm.loaded / warm.total : 0
 
   return (
     <section ref={sectionRef} id="story" className={styles.film} style={{ height: scrollHeight }}>
+      {ready ? null : (
+        <div className={styles.opening} role="status" aria-live="polite" aria-label="Loading the film">
+          <p className={styles.openingMark}>A Boundless Pack</p>
+          <span className={styles.openingTrack} aria-hidden="true">
+            <span className={styles.openingBar} style={{ transform: `scaleX(${warmScale})` }} />
+          </span>
+        </div>
+      )}
       <div className={styles.stage} data-tone={tone}>
         <canvas ref={canvasRef} className={styles.canvas} aria-hidden="true" />
         <div className={styles.veil} aria-hidden="true" />
-        <div className={styles.caption} aria-live="polite">
+        <div className={styles.caption} data-place={beat.place} aria-live="polite">
           <p className={styles.kicker}>
             <span className={styles.index}>{String(beatIndex + 1).padStart(2, "0")}</span>
             {beat.kicker}
